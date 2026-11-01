@@ -1,6 +1,3 @@
-// boot.cpp -> boot.exe : installs ClaudeOS next to Windows on a legacy-BIOS PC and puts GRUB in front of it.
-// Use it only when you cannot boot from a USB stick. Needs payload.h (made by .github/workflows/build.yml).
-// Flags: --dry-run (change nothing)   --restore <backup.bin> <disk>   (internal) --install --mode create|disk --disk N
 #include <windows.h>
 #include <winioctl.h>
 #include <shlobj.h>
@@ -11,6 +8,7 @@
 #include <vector>
 #include <iostream>
 #include "payload.h"
+
 using namespace std;
 
 static const char* GRUB_CFG = R"CFG(set timeout=10
