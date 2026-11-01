@@ -1,0 +1,42 @@
+name: build-claudeos
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y build-essential gcc-multilib grub-pc-bin xorriso mtools mingw-w64 xxd
+
+      - name: Build the ClaudeOS kernel
+        run: |
+          sed -i 's/\r$//' *.sh Makefile boot.S linker.ld grub/grub.cfg || true
+          make
+
+      - name: Build GRUB images and payload.h for boot.exe
+        run: |
+          printf '%s\n' 'search --no-floppy --file --set=root /claudeos/boot/claudeos.elf' 'set prefix=($root)/claudeos/grub' 'configfile ($root)/claudeos/grub/grub.cfg' > early.cfg
+          grub-mkimage -O i386-pc -o core.img -c early.cfg -p /claudeos/grub biosdisk part_msdos part_gpt fat ntfs ext2 multiboot chain normal configfile search search_fs_file search_fs_uuid echo ls cat test sleep all_video boot reboot halt terminal minicmd extcmd gettext datetime crypto bufio
+          cp /usr/lib/grub/i386-pc/boot.img boot.img
+          { xxd -i boot.img; xxd -i core.img; xxd -i claudeos.elf; } > payload.h
+          ls -l core.img boot.img claudeos.elf
+
+      - name: Build boot.exe (Windows installer)
+        run: x86_64-w64-mingw32-g++ -std=c++17 -O2 -static -static-libgcc -static-libstdc++ -o boot.exe boot.cpp -lshell32 -ladvapi32
+
+      - name: Build ClaudeOS.iso (boot.exe is inside it)
+        run: |
+          mkdir -p iso/boot/grub
+          cp claudeos.elf iso/boot/claudeos.elf
+          cp grub/grub.cfg iso/boot/grub/grub.cfg
+          cp boot.exe iso/boot.exe
+          cp README.md iso/README.TXT
+          grub-mkrescue -o ClaudeOS.iso iso
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ClaudeOS
+          path: |
+            ClaudeOS.iso
+            boot.exe
